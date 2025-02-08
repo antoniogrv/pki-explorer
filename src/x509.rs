@@ -1,60 +1,50 @@
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::path::PathBuf;
 
 use ratatui::{style::palette::material::GREEN, text::Line, widgets::ListItem};
-use x509_parser::pem::Pem;
+use x509_certificate::CapturedX509Certificate;
 
-/// Represents a PEM-encoded X.509 TLS certificate.
-#[derive(Clone)]
+/// Represents a PEM- or DER-encoded X.509-compliant TLS certificate.
+#[derive(Debug)]
 pub struct X509 {
-    pub file_path: Box<PathBuf>,
-    pub file_path_raw: String,
-    pub pem: Pem,
+    path: PathBuf,
+
+    subject: String,
+    issuer: String,
 }
 
 impl X509 {
-    pub fn new(file_path: Box<PathBuf>) -> Self {
-        let file_path_raw = file_path
-            .as_os_str()
-            .to_str()
-            .unwrap_or("Couldn't convert the X509 into a string.")
-            .to_string();
+    pub fn from(x509_certificate: &CapturedX509Certificate, path: PathBuf) -> Result<Self, String> {
+        let subject: String = x509_certificate
+            .subject_common_name()
+            .ok_or("Couldn't parse the X509 subject.")?;
 
-        let file_contents = File::open(&file_path_raw).unwrap();
+        let issuer: String = x509_certificate
+            .issuer_common_name()
+            .ok_or("Couldn't parse the X509 issuer.")?;
 
-        let pem = x509_parser::pem::Pem::read(BufReader::new(file_contents))
-            .unwrap()
-            .0;
-
-        Self {
-            file_path,
-            file_path_raw,
-            pem,
-        }
+        Ok(X509 {
+            path,
+            subject,
+            issuer,
+        })
     }
-}
 
-impl std::fmt::Display for X509 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let path_string: Option<&str> = self.file_path.as_os_str().to_str();
+    pub fn get_subject(&self) -> &String {
+        &self.subject
+    }
 
-        match path_string {
-            Some(path_string) => {
-                writeln!(f, "{}", path_string)?;
-                Ok(())
-            }
-            _ => Err(std::fmt::Error),
-        }
+    pub fn get_issuer(&self) -> &String {
+        &self.issuer
+    }
+
+    pub fn get_path(&self) -> &PathBuf {
+        &self.path
     }
 }
 
 impl<'a> From<&'a X509> for ListItem<'a> {
-    fn from(value: &'a X509) -> Self {
-        let path_str = value
-            .file_path
-            .as_os_str()
-            .to_str()
-            .unwrap_or("Couldn't parse the X509.");
-        let line = Line::styled(path_str, GREEN.a200);
+    fn from(x509: &'a X509) -> Self {
+        let line = Line::styled(x509.get_subject(), GREEN.a200);
 
         ListItem::new(line)
     }

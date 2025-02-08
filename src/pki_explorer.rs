@@ -7,7 +7,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Padding, Paragraph, StatefulWidget, Widget},
     DefaultTerminal,
 };
-use x509_parser::parse_x509_certificate;
 
 use crate::{x509::X509, x509_tui::X509TUIList};
 
@@ -74,6 +73,7 @@ impl PKIExplorerApp {
             .iter()
             .map(ListItem::from)
             .collect();
+
         let list = List::new(items)
             .block(block)
             .highlight_symbol(">")
@@ -85,12 +85,9 @@ impl PKIExplorerApp {
     fn render_content_area(&self, area: Rect, buf: &mut Buffer) {
         let content: String = if let Some(index) = self.x509_tui_list.state.selected() {
             if let Some(x509) = self.x509_tui_list.items.get(index) {
-                match parse_x509_certificate(&x509.pem.contents) {
-                    Ok((_, certificate)) => certificate.subject.to_string(),
-                    Err(_) => "Couldn't parse the X509 file.".to_string(),
-                }
+                // Some content...
             } else {
-                "Couldn't parse the X509 path.".to_string()
+                "Couldn't parse the X509 TUI item.".to_string()
             }
         } else {
             "No x509 selected".to_string()
