@@ -170,7 +170,7 @@ impl X509 {
         ]);
 
         let up_until: Line = Line::from(vec![
-            Span::styled("\t .. up antil ", Style::default().fg(Color::White)),
+            Span::styled("\t .. up until ", Style::default().fg(Color::White)),
             Span::styled(not_after, Style::default().fg(Color::White)),
         ]);
 
