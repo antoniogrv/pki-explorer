@@ -1,7 +1,7 @@
-use std::{error::Error, path::PathBuf};
-
+use clap::Parser;
+use clap::*;
 use std::fs::{read, read_dir, DirEntry};
-
+use std::{error::Error, path::PathBuf};
 use x509::X509;
 use x509_certificate::*;
 
@@ -9,10 +9,19 @@ mod pki_explorer;
 mod x509;
 mod x509_tui;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = ".")]
+    path: String,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
     let _ = color_eyre::install();
 
-    let workdir: String = String::from("test_certs");
+    let workdir: String = args.path;
 
     let x509s: Vec<X509> = lookup_x509s(workdir.as_str())?;
 
@@ -34,7 +43,15 @@ fn lookup_x509s(dir: &str) -> Result<Vec<X509>, Box<dyn Error>> {
         if entry.file_type()?.is_file() {
             let entry_path: PathBuf = entry.path();
             let entry_file: Vec<u8> = read(&entry_path)?;
-            let x509: X509 = X509::from(&X509Certificate::from_pem(entry_file)?, entry_path)?;
+            let entry_raw = &X509Certificate::from_pem(entry_file);
+
+            let x509 = if let Ok(decoded_cert) = entry_raw {
+                decoded_cert
+            } else {
+                break;
+            };
+
+            let x509: X509 = X509::from(x509, entry_path)?;
             entries.push(x509);
         } else {
             let mut nested_elements = lookup_x509s(

@@ -3,8 +3,8 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Text},
+    style::{Color, Style, Stylize},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Padding, Paragraph, StatefulWidget, Widget, Wrap},
     DefaultTerminal,
 };
@@ -71,8 +71,11 @@ impl PKIExplorerApp {
 
     fn render_header_area(&mut self, area: Rect, buf: &mut Buffer) {
         let header_content: Text = Text::from(vec![
-            Line::from("pki-explorer"),
-            Line::from("use the arrow keys to move; press 'q' to exit"),
+            Line::from(vec![Span::styled(
+                "pki-explorer",
+                Style::default().fg(Color::LightBlue).bold(),
+            )]),
+            Line::from("use the arrow keys to move; press 'q' to exit; use '-h' for help"),
         ]);
 
         Paragraph::new(header_content)
@@ -129,7 +132,11 @@ impl PKIExplorerApp {
     fn render_content_display_area(&self, area: Rect, buf: &mut Buffer) {
         let mut lines: Vec<Line> = Vec::new();
 
-        if let Some(index) = self.x509_tui_list.state.selected() {
+        if self.x509_tui_list.items.len() == 0 {
+            lines.push(Line::from(
+                "This path contains no valid X509 certificates. Please use -p to specifiy a path.",
+            ).alignment(Alignment::Center));
+        } else if let Some(index) = self.x509_tui_list.state.selected() {
             if let Some(x509) = self.x509_tui_list.items.get(index) {
                 let mut default_lines: Vec<Line> = Vec::from(x509.get_default_lines());
                 lines.append(&mut default_lines);
@@ -144,6 +151,7 @@ impl PKIExplorerApp {
 
         let block: Block = Block::default()
             .borders(Borders::ALL)
+            .padding(Padding::symmetric(2, 1))
             .border_style(Style::default().fg(Color::Black));
 
         Paragraph::new(content)
