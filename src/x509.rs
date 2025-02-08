@@ -18,7 +18,6 @@ pub struct X509 {
     self_signed: bool,
     not_before: chrono::DateTime<Utc>,
     not_after: chrono::DateTime<Utc>,
-    extensions: Vec<(String, String)>,
 }
 
 impl X509 {
@@ -36,16 +35,6 @@ impl X509 {
         let not_before: chrono::DateTime<Utc> = x509_certificate.validity_not_before();
         let not_after: chrono::DateTime<Utc> = x509_certificate.validity_not_after();
 
-        let extensions: Vec<(String, String)> = x509_certificate
-            .iter_extensions()
-            .map(|e: &Extension| {
-                (
-                    String::from_utf8_lossy(&e.id.0).to_string(),
-                    String::from_utf8_lossy(e.value.as_slice().unwrap()).to_string(),
-                )
-            })
-            .collect();
-
         Ok(X509 {
             path,
             subject,
@@ -53,7 +42,6 @@ impl X509 {
             self_signed,
             not_before,
             not_after,
-            extensions,
         })
     }
 
@@ -85,10 +73,6 @@ impl X509 {
         let now = chrono::offset::Utc::now();
 
         now <= *self.get_not_after() && now >= *self.get_not_before()
-    }
-
-    pub fn get_extensions(&self) -> &Vec<(String, String)> {
-        &self.extensions
     }
 
     pub fn get_default_lines(&self) -> Vec<Line> {
