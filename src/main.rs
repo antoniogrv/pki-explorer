@@ -12,10 +12,12 @@ mod x509_tui;
 fn main() -> Result<(), Box<dyn Error>> {
     let _ = color_eyre::install();
 
-    let x509s: Vec<X509> = lookup_x509s("test_certs")?;
+    let workdir: String = String::from("test_certs");
+
+    let x509s: Vec<X509> = lookup_x509s(workdir.as_str())?;
 
     let terminal = ratatui::init();
-    let app_result = pki_explorer::PKIExplorerApp::new(x509s).run(terminal);
+    let app_result = pki_explorer::PKIExplorerApp::new(x509s, workdir).run(terminal);
 
     ratatui::restore();
 
@@ -32,8 +34,7 @@ fn lookup_x509s(dir: &str) -> Result<Vec<X509>, Box<dyn Error>> {
         if entry.file_type()?.is_file() {
             let entry_path: PathBuf = entry.path();
             let entry_file: Vec<u8> = read(&entry_path)?;
-            let x509: X509 =
-                X509::from(&CapturedX509Certificate::from_pem(entry_file)?, entry_path)?;
+            let x509: X509 = X509::from(&X509Certificate::from_pem(entry_file)?, entry_path)?;
             entries.push(x509);
         } else {
             let mut nested_elements = lookup_x509s(

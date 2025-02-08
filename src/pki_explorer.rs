@@ -4,7 +4,8 @@ use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, List, ListItem, Padding, Paragraph, StatefulWidget, Widget},
+    text::{Line, Text},
+    widgets::{Block, Borders, List, ListItem, Padding, Paragraph, StatefulWidget, Widget, Wrap},
     DefaultTerminal,
 };
 
@@ -13,6 +14,7 @@ use crate::{x509::X509, x509_tui::X509TUIList};
 pub struct PKIExplorerApp {
     done: bool,
     x509_tui_list: X509TUIList,
+    workdir: String,
 }
 
 impl Widget for &mut PKIExplorerApp {
@@ -20,20 +22,25 @@ impl Widget for &mut PKIExplorerApp {
     where
         Self: Sized,
     {
-        let [list_area, content_area] =
-            Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(50)])
-                .areas(area);
+        let [header_area, content_area, footer_area] = Layout::vertical([
+            Constraint::Percentage(5),
+            Constraint::Percentage(90),
+            Constraint::Percentage(5),
+        ])
+        .areas(area);
 
-        self.render_list_area(list_area, buf);
+        self.render_header_area(header_area, buf);
         self.render_content_area(content_area, buf);
+        self.render_footer_area(footer_area, buf);
     }
 }
 
 impl PKIExplorerApp {
-    pub fn new(x509s: Vec<X509>) -> Self {
+    pub fn new(x509s: Vec<X509>, workdir: String) -> Self {
         Self {
             done: Default::default(),
             x509_tui_list: X509TUIList::new(x509s),
+            workdir: workdir,
         }
     }
 
@@ -62,10 +69,47 @@ impl PKIExplorerApp {
         }
     }
 
+    fn render_header_area(&mut self, area: Rect, buf: &mut Buffer) {
+        let header_content: Text = Text::from(vec![
+            Line::from("pki-explorer"),
+            Line::from("use the arrow keys to move; press 'q' to exit"),
+        ]);
+
+        Paragraph::new(header_content)
+            .style(Style::default().fg(Color::White))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: false })
+            .block(Block::default())
+            .render(area, buf);
+    }
+
+    fn render_footer_area(&mut self, area: Rect, buf: &mut Buffer) {
+        let footer_content: Text = Text::from(format!(
+            "currently exploring the directory: {}",
+            self.workdir
+        ));
+
+        Paragraph::new(footer_content)
+            .style(Style::default().fg(Color::White))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: false })
+            .block(Block::default())
+            .render(area, buf);
+    }
+
+    fn render_content_area(&mut self, area: Rect, buf: &mut Buffer) {
+        let [list_area, content_area] =
+            Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
+                .areas(area);
+
+        self.render_list_area(list_area, buf);
+        self.render_content_display_area(content_area, buf);
+    }
+
     fn render_list_area(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::default()
             .padding(Padding::uniform(1))
-            .borders(Borders::RIGHT);
+            .borders(Borders::NONE);
 
         let items: Vec<ListItem> = self
             .x509_tui_list
@@ -82,23 +126,29 @@ impl PKIExplorerApp {
         StatefulWidget::render(list, area, buf, &mut self.x509_tui_list.state);
     }
 
-    fn render_content_area(&self, area: Rect, buf: &mut Buffer) {
-        let content: String = if let Some(index) = self.x509_tui_list.state.selected() {
+    fn render_content_display_area(&self, area: Rect, buf: &mut Buffer) {
+        let mut lines: Vec<Line> = Vec::new();
+
+        if let Some(index) = self.x509_tui_list.state.selected() {
             if let Some(x509) = self.x509_tui_list.items.get(index) {
-                // Some content...
+                let mut default_lines: Vec<Line> = Vec::from(x509.get_default_lines());
+                lines.append(&mut default_lines);
             } else {
-                "Couldn't parse the X509 TUI item.".to_string()
+                lines.push(Line::from("Couldn't parse the X509 TUI item."));
             }
         } else {
-            "No x509 selected".to_string()
+            lines.push(Line::from("No X509 selected."));
         };
 
-        let block = Block::default()
-            .title_alignment(Alignment::Center)
-            .title("X509 Content");
+        let content: Text = Text::from(lines);
+
+        let block: Block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Black));
 
         Paragraph::new(content)
             .style(Style::default().fg(Color::White))
+            .wrap(Wrap { trim: false })
             .block(block)
             .render(area, buf);
     }
