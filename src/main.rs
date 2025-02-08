@@ -15,8 +15,11 @@ struct Args {
     #[arg(short, long, default_value = ".")]
     path: String,
 
-    #[arg(short, long, action, default_value = "true", action=ArgAction::SetFalse)]
-    silent: bool,
+    #[arg(short, long, default_value = "2")]
+    depth: u8,
+
+    #[arg(short, long, action, default_value = "false", action=ArgAction::SetTrue)]
+    verbose: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -26,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let workdir: String = args.path;
 
-    let x509s: Vec<X509> = lookup_x509s(workdir.as_str(), args.silent)?;
+    let x509s: Vec<X509> = lookup_x509s(workdir.as_str(), args.verbose, (0, args.depth))?;
 
     let terminal = ratatui::init();
     let app_result = pki_explorer::PKIExplorerApp::new(x509s, workdir).run(terminal);
@@ -36,12 +39,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(app_result.unwrap_or(()))
 }
 
-fn lookup_x509s(dir: &str, silent: bool) -> Result<Vec<X509>, Box<dyn Error>> {
+fn lookup_x509s(dir: &str, verbose: bool, depth: (u8, u8)) -> Result<Vec<X509>, Box<dyn Error>> {
     let mut entries: Vec<X509> = Vec::new();
 
-    if !silent {
-        println!(".. Looking for X509s in {}", dir);
-    };
+    if depth.0 >= depth.1 {
+        return Ok(entries);
+    } else {
+        if verbose {
+            println!(".. Looking for X509s in {} at depth {}", dir, depth.0);
+        };
+    }
 
     let dir = read_dir(dir)?;
 
@@ -54,13 +61,14 @@ fn lookup_x509s(dir: &str, silent: bool) -> Result<Vec<X509>, Box<dyn Error>> {
             let entry_raw = &X509Certificate::from_pem(entry_file);
 
             if let Ok(decoded_cert) = entry_raw {
-                if !silent {
+                if verbose {
                     println!(
-                        ".. Found valid X509: {}",
+                        ".. Found valid X509: {} at depth {}",
                         &entry_path
                             .as_os_str()
                             .to_str()
-                            .ok_or("Can't parse the directory name.")?
+                            .ok_or("Can't parse the directory name.")?,
+                        depth.0
                     );
                 };
 
@@ -74,7 +82,8 @@ fn lookup_x509s(dir: &str, silent: bool) -> Result<Vec<X509>, Box<dyn Error>> {
                     .as_os_str()
                     .to_str()
                     .ok_or("Couldn't not parse the nested directory.")?,
-                silent,
+                verbose,
+                (depth.0 + 1, depth.1),
             )?;
             entries.append(&mut nested_elements);
         }

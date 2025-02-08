@@ -5,7 +5,6 @@ use ratatui::{
     widgets::ListItem,
 };
 use std::path::PathBuf;
-use x509_certificate::rfc5280::Extension;
 use x509_certificate::X509Certificate;
 
 /// Represents a PEM- or DER-encoded X.509-compliant TLS certificate.
